@@ -7,7 +7,10 @@ readme = myNotes :D
 step 1. cd to ur game file path
 
 step 2. run this in ucrt64 (msys)
-g++ main.cpp -o game.exe -lraylib -lwinmm -lgdi32 -luser32
+g++ main.cpp pathway.cpp tileset.cpp -o RuneBlast -lraylib -lopengl32 -lgdi32 -lwinmm
+
+g++ main.cpp -o game.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+
 
 step 3. do ./game or ./game.exe
 
