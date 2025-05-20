@@ -1,34 +1,29 @@
+#include "tileset.h"
 #include <fstream>
 #include <sstream>
-#include <string>
-using namespace std;
 
 const int tileWidth = 32;
 const int tileHeight = 32;
 
-struct tile {
-    int tileID;
-    int gridX, gridY;
-    int screenX, screenY;
-};
-
-struct Node {
-    tile data;
-    Node* next;
-};
+int GetTileValue(Node* head, int y, int x) {
+    Node* current = head;
+    while (current) {
+        if (current->data.gridX == x && current->data.gridY == y)
+            return current->data.tileID;
+        current = current->next;
+    }
+    return -1;
+}
 
 Node* LoadTileMap(const string& filename) {
     ifstream file(filename);
-    if (!file.is_open()) {
-        return nullptr;
-    }
+    if (!file.is_open()) return nullptr;
 
     Node* head = nullptr;
     Node* tail = nullptr;
-
     string line;
     int gridY = 0;
-
+ 
     while (getline(file, line)) {
         stringstream ss(line);
         string storeID;
@@ -48,15 +43,12 @@ Node* LoadTileMap(const string& filename) {
                 tile newTile = { tileID, gridX, gridY, screenX, screenY };
                 Node* newNode = new Node{ newTile, nullptr };
 
-                if (!head) {
-                    head = tail = newNode;
-                } else {
+                if (!head) head = tail = newNode;
+                else {
                     tail->next = newNode;
                     tail = newNode;
                 }
-            } catch (...) {
-                // Ignore invalid values
-            }
+            } catch (...) {}
             gridX++;
         }
         gridY++;
