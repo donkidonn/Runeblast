@@ -1,22 +1,62 @@
-# Runeblast
-A tower defense game developed in C++ using raylib library
+#include "raylib.h"
 
-readme = myNotes :D
+int main() {
+    const int screenWidth = 800;
+    const int screenHeight = 600;
+    InitWindow(screenWidth, screenHeight, "Tower + Archer Stack Test");
+    SetTargetFPS(10);  // Set to 10 FPS for clear animation
 
-//to run the game
-step 1. cd to ur game file path
+    // Load sprites
+    Texture2D towerTex = LoadTexture("Upgrade2.png"); // new tower sprite
+    Texture2D archerTex = LoadTexture("Up_idle.png"); // your archer file
 
-step 2. run this in ucrt64 (msys)
-g++ main.cpp pathway.cpp tileset.cpp -o RuneBlast -lraylib -lopengl32 -lgdi32 -lwinmm
+    // Tower sprite frame details
+    const int towerFrameWidth = 32;
+    const int towerFrameHeight = 70;
+    const int towerFrameCount = 4;
 
-g++ main.cpp -o game.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+    int currentFrame = 0;
+    int frameCounter = 0;
+    bool towerAnimDone = false;
 
+    Vector2 towerPos = {screenWidth / 2 - towerFrameWidth / 2, screenHeight / 2};
+    Vector2 archerPos;
 
-step 3. do ./game or ./game.exe
+    while (!WindowShouldClose()) {
+        frameCounter++;
 
-Pathfinding algorithm (will change siguro)
-1. starts at specific tile.
-2. y + 1 //meaning it will move to the right
-3. then when nag move na, it will check its 4 directions (up down right left)
-4. when checking icheck niya if ang tileID is = 1. 
-5. If nakahanap siya na ang tileID is 1, icheck niya if napuntahan niya na ba yun or not. if yes then ignore, if not then mag momove siya dun.
+        // Animate the tower
+        if (!towerAnimDone && frameCounter % 10 == 0) {
+            currentFrame++;
+            if (currentFrame >= towerFrameCount) {
+                currentFrame = towerFrameCount - 1;
+                towerAnimDone = true;
+            }
+        }
+
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+
+        // Draw tower frame
+        Rectangle towerSrc = { (float)(towerFrameWidth * currentFrame), 0.0f, (float)towerFrameWidth, (float)towerFrameHeight };
+        DrawTextureRec(towerTex, towerSrc, towerPos, WHITE);
+
+        // Draw archer after tower is done
+        if (towerAnimDone) {
+            // Adjust offsetY if needed to fit nicely
+            int offsetY = 10;
+            archerPos.x = towerPos.x + towerFrameWidth / 2 - archerTex.width / 2;
+            archerPos.y = towerPos.y - archerTex.height + offsetY;
+            DrawTexture(archerTex, archerPos.x, archerPos.y, WHITE);
+        }
+
+        DrawText("Tower anim, then archer appears on top", 10, 10, 20, DARKGRAY);
+        EndDrawing();
+    }
+
+    UnloadTexture(towerTex);
+    UnloadTexture(archerTex);
+    CloseWindow();
+
+    return 0;
+}

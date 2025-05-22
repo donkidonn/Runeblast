@@ -14,27 +14,22 @@ int main() {
     int tilesPerRow = tileset.width / tileWidth;
     Node* tileMap = LoadTileMap("tiles.csv");
 
-    /*
     float spawnTimer = 0.0f;
-    float spawnDelay = 5.0f; */
-    bool enemySpawned = false;
+    float spawnDelay = 3.0f;
+
+    // Queue 4 enemies
+    if (!spawnFront) {
+        Enqueue({0, 5});
+        Enqueue({0, 5});
+        Enqueue({0, 5});
+        Enqueue({0, 5});
+    }
 
     const int spiderFrameWidth = 64;
     const int spiderFrameHeight = 64;
 
     while (!WindowShouldClose()) {
-        /*
-        spawnTimer += GetFrameTime();
-        if (spawnTimer >= spawnDelay) {
-            SpawnEnemy(headEnemy, { 0, 5 }, tileMap);
-            spawnTimer = 0.0f;
-        } */
-
-        if (!enemySpawned) {
-            SpawnEnemy(headEnemy, { 0, 5 }, tileMap);
-            enemySpawned = true;
-        }
-
+        SpawnManager(tileMap, spawnTimer, spawnDelay);
         UpdateEnemies(headEnemy, tileMap, GetFrameTime());
 
         BeginDrawing();
@@ -65,10 +60,23 @@ int main() {
             Rectangle destRect = {
                 spider->position.x,
                 spider->position.y,
-                64, // scaled width
-                64  // scaled height
+                64, 64
             };
-            DrawTexturePro(spiderTexture, srcRect, destRect, {32, 32}, 0.0f, WHITE);
+            Color tint = spider->isHit ? RED : WHITE;
+            DrawTexturePro(
+                spiderTexture,
+                srcRect,
+                destRect,
+                {32, 32},
+                spider->rotation,
+                tint
+            );
+
+            // health bar
+            float hpPercent = (float)spider->health / 3.0f;
+            Vector2 barPos = { spider->position.x - 20, spider->position.y - 40 };
+            DrawRectangleV(barPos, { 40, 5 }, GRAY);
+            DrawRectangleV(barPos, { 40 * hpPercent, 5 }, RED);
 
             spider = spider->next;
         }
