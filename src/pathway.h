@@ -24,6 +24,7 @@ struct Enemy {
     VisitedNode* visitedHead = nullptr;
 
     int health;
+    int maxHealth;
     bool isHit;
     float hitTimer;
 

@@ -11,7 +11,7 @@ Texture2D archerTex;
 const int towerUpgradeFrames = 4;
 const int towerUpgradeSpeed = 10;
 const int archerFrameCount = 4;
-const int archerSpeed = 10;
+const int archerSpeed = 30;
 
 void SpawnTower(Vector2 position) {
     TowerNode* tower = new TowerNode;
@@ -51,7 +51,7 @@ void FireArrow(TowerNode* tower, Enemy* target) {
     ArrowNode* arrow = new ArrowNode;
     arrow->position = tower->position;
     arrow->target = target->position;
-    arrow->speed = 3.5f;
+    arrow->speed = 10.0f;
 
     float angle = atan2f(arrow->target.y - arrow->position.y, arrow->target.x - arrow->position.x) * RAD2DEG;
     arrow->flip = false;
@@ -115,4 +115,15 @@ void DrawTowers(TowerNode* head) {
             DrawTexturePro(a->texture, src, {a->position.x, a->position.y, (float)a->texture.width, (float)a->texture.height}, origin, 0.0f, WHITE);
         }
     }
+}
+
+bool IsTowerOccupied(Vector2 position) {
+    TowerNode* current = towerHead;
+    while (current) {
+        if (Vector2Distance(current->position, position) < 5.0f) {
+            return true;
+        }
+        current = current->next;
+    }
+    return false;
 }

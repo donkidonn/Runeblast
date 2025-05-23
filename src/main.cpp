@@ -9,6 +9,22 @@ extern Texture2D upgradeTex;
 extern Texture2D archerTex;
 extern TowerNode* towerHead;
 
+bool IsTowerSpot(Vector2 click, Vector2* snappedOut) {
+    for (auto& d : decorList) {
+        if (d.gid == 155) { // tower spot marker
+            Rectangle r = { d.x, d.y, (float)d.texture.width, (float)d.texture.height };
+            if (CheckCollisionPointRec(click, r)) {
+                *snappedOut = {
+                    d.x + d.texture.width / 2.0f - 36,
+                    d.y + d.texture.height / 2.0f - 4
+                };
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 int main() {
     InitWindow(1664, 992, "Rune Blast");
     SetTargetFPS(60);
@@ -66,14 +82,19 @@ int main() {
             }
         }
 
-        if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-            Vector2 mouse = GetMousePosition();
-            Vector2 snapped = {
-                (float)((int)mouse.x / tileWidth) * tileWidth,
-                (float)((int)mouse.y / tileHeight) * tileHeight
-            };
+if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+    Vector2 mouse = GetMousePosition();
+    Vector2 snapped = {};
+    if (IsTowerSpot(mouse, &snapped)) {
+        if (!IsTowerOccupied(snapped)) {
             SpawnTower(snapped);
+        } else {
+            std::cout << "Tower already built here!" << std::endl;
         }
+    } else {
+        std::cout << "Cannot build here!" << std::endl;
+    }
+}
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -115,7 +136,7 @@ int main() {
                 tint
             );
 
-            float hpPercent = (float)spider->health / 3.0f;
+            float hpPercent = (float)spider->health / spider->maxHealth;
             Vector2 barPos = { spider->position.x - 20, spider->position.y - 40 };
             DrawRectangleV(barPos, { 40, 5 }, GRAY);
             DrawRectangleV(barPos, { 40 * hpPercent, 5 }, RED);
