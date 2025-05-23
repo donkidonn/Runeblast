@@ -70,7 +70,8 @@ void SpawnEnemy(Enemy*& head, Vector2 tileCoord, Node* tileMap) {
     newEnemy->facingDir = {1, 0};
     newEnemy->rotation = 0.0f;
     newEnemy->visitedHead = nullptr;
-    newEnemy->health = 3;
+    newEnemy->health = 50;
+    newEnemy->maxHealth = 50;
     newEnemy->isHit = false;
     newEnemy->hitTimer = 0.0f;
     AddToVisited(newEnemy->visitedHead, tileCoord);

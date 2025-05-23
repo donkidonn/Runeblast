@@ -42,5 +42,6 @@ extern TowerNode* towerHead;
 void SpawnTower(Vector2 position);
 void UpdateTowers(TowerNode*& head, float delta);
 void DrawTowers(TowerNode* head);
+bool IsTowerOccupied(Vector2 position);
 
 #endif
