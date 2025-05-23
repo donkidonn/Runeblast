@@ -1,8 +1,13 @@
 #include <raylib.h>
+#include <raymath.h>
+#include <iostream>
 #include "tileset.h"
 #include "pathway.h"
-#include <iostream>
-using namespace std;
+#include "tower.h"
+
+extern Texture2D upgradeTex;
+extern Texture2D archerTex;
+extern TowerNode* towerHead;
 
 int main() {
     InitWindow(1664, 992, "Rune Blast");
@@ -10,14 +15,17 @@ int main() {
 
     Texture2D tileset = LoadTexture("FieldsTileset.png");
     Texture2D spiderTexture = LoadTexture("spider.png");
+    upgradeTex = LoadTexture("Upgrade2.png");
+    archerTex = LoadTexture("Up_idle.png");
 
     int tilesPerRow = tileset.width / tileWidth;
-    Node* tileMap = LoadTileMap("tiles.csv");
+
+    Node* tileMap = LoadTileMapFromTMJ("FINALPLEASE..tmj");
+    LoadDecorationsFromTMJ("FINALPLEASE..tmj");
 
     float spawnTimer = 0.0f;
     float spawnDelay = 3.0f;
 
-    // Queue 4 enemies
     if (!spawnFront) {
         Enqueue({0, 5});
         Enqueue({0, 5});
@@ -29,13 +37,47 @@ int main() {
     const int spiderFrameHeight = 64;
 
     while (!WindowShouldClose()) {
+        float delta = GetFrameTime();
+
         SpawnManager(tileMap, spawnTimer, spawnDelay);
-        UpdateEnemies(headEnemy, tileMap, GetFrameTime());
+        UpdateEnemies(headEnemy, tileMap, delta);
+        UpdateTowers(towerHead, delta);
+
+        for (TowerNode* t = towerHead; t != nullptr; t = t->next) {
+            ArrowNode** a = &t->arrowHead;
+            while (*a) {
+                ArrowNode* arrow = *a;
+                Enemy* e = headEnemy;
+                bool hit = false;
+
+                while (e) {
+                    Rectangle hitbox = GetEnemyHitbox(e);
+                    if (CheckCollisionPointRec(arrow->position, hitbox)) {
+                        DamageEnemy(e, 1);
+                        *a = arrow->next;
+                        UnloadTexture(arrow->texture);
+                        delete arrow;
+                        hit = true;
+                        break;
+                    }
+                    e = e->next;
+                }
+                if (!hit) a = &(*a)->next;
+            }
+        }
+
+        if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+            Vector2 mouse = GetMousePosition();
+            Vector2 snapped = {
+                (float)((int)mouse.x / tileWidth) * tileWidth,
+                (float)((int)mouse.y / tileHeight) * tileHeight
+            };
+            SpawnTower(snapped);
+        }
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
 
-        // draw tiles
         Node* current = tileMap;
         while (current) {
             tile t = current->data;
@@ -50,7 +92,8 @@ int main() {
             current = current->next;
         }
 
-        // draw enemies
+        DrawDecorations();
+
         Enemy* spider = headEnemy;
         while (spider) {
             Rectangle srcRect = {
@@ -72,7 +115,6 @@ int main() {
                 tint
             );
 
-            // health bar
             float hpPercent = (float)spider->health / 3.0f;
             Vector2 barPos = { spider->position.x - 20, spider->position.y - 40 };
             DrawRectangleV(barPos, { 40, 5 }, GRAY);
@@ -81,11 +123,17 @@ int main() {
             spider = spider->next;
         }
 
+        DrawTowers(towerHead);
+
         EndDrawing();
     }
 
     UnloadTexture(tileset);
     UnloadTexture(spiderTexture);
+    UnloadTexture(upgradeTex);
+    UnloadTexture(archerTex);
+    for (auto& d : decorList) UnloadTexture(d.texture);
+
     CloseWindow();
     return 0;
 }

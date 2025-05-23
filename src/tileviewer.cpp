@@ -1,72 +1,161 @@
 #include "raylib.h"
-#include <string>
+#include "json.hpp"
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <algorithm>
 
-const int TILE_SIZE = 32;
-const int WINDOW_WIDTH = 1600;
-const int WINDOW_HEIGHT = 900;
+using json = nlohmann::json;
+using namespace std;
+
+struct Tileset {
+    Texture2D texture;
+    int firstgid;
+    int tileWidth;
+    int tileHeight;
+    int columns;
+};
+
+unordered_map<int, Texture2D> gidTextures; // NEW: map gid → Texture
+
+json LoadTMJ(const char* filePath) {
+    ifstream in(filePath);
+    json j;
+    in >> j;
+    return j;
+}
+
+Texture2D LoadTilesetTexture(const std::string& imagePath) {
+    if (!std::ifstream(imagePath)) {
+        cout << "❌ Image not found: " << imagePath << endl;
+        return LoadTextureFromImage(GenImageColor(1, 1, RED));
+    }
+    Image img = LoadImage(imagePath.c_str());
+    Texture2D tex = LoadTextureFromImage(img);
+    UnloadImage(img);
+    return tex;
+}
 
 int main() {
-    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Tileset Viewer");
+    InitWindow(1664, 992, "TMJ Viewer with Decorations");
     SetTargetFPS(60);
 
-    Texture2D tileset = LoadTexture("FieldsTileset.png");
-    Texture2D tileset2 = LoadTexture("FieldsTile_38.png");
-    Texture2D grass = LoadTexture("grass.png");
+    json mapData = LoadTMJ("FINALPLEASE..tmj");
 
-    int tilesPerRow = tileset.width / TILE_SIZE;
-    int tilesPerCol = tileset.height / TILE_SIZE;
-    int totalTiles = tilesPerRow * tilesPerCol;
+    int tileWidth = mapData["tilewidth"];
+    int tileHeight = mapData["tileheight"];
+
+    vector<Tileset> tilesets;
+
+    for (auto& ts : mapData["tilesets"]) {
+        if (ts.contains("image") && !ts["image"].is_null()) {
+            // Normal tileset
+            Tileset tset;
+            tset.firstgid = ts["firstgid"];
+            tset.tileWidth = ts["tilewidth"];
+            tset.tileHeight = ts["tileheight"];
+            tset.columns = ts["columns"];
+
+            string imagePath = ts["image"];
+            std::replace(imagePath.begin(), imagePath.end(), '\\', '/');
+
+            cout << "📦 Loading tileset: " << imagePath << endl;
+            tset.texture = LoadTilesetTexture(imagePath);
+            tilesets.push_back(tset);
+        }
+
+        // NEW: support for "collection of images"
+        if (ts.contains("tiles")) {
+            int firstgid = ts["firstgid"];
+            for (auto& tile : ts["tiles"]) {
+                if (tile.contains("image")) {
+                    string imagePath = tile["image"];
+                    std::replace(imagePath.begin(), imagePath.end(), '\\', '/');
+                    int id = tile["id"];
+                    int gid = firstgid + id;
+
+                    cout << "📦 Loading image tile gid " << gid << ": " << imagePath << endl;
+                    gidTextures[gid] = LoadTilesetTexture(imagePath);
+                }
+            }
+        }
+    }
 
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        //fits the png file to the window
 
-        float scaleX = (float)WINDOW_WIDTH / tileset2.width;
-        float scaleY = (float)WINDOW_HEIGHT / tileset2.height;
-        DrawTextureEx(tileset2, {0, 0}, 0.0f, scaleX, WHITE); //the purpose of white is to make the image transparent
-        
-        float scale = 10.0f;
-        Vector2 screenCenter = {
-            (GetScreenWidth() - grass.width * scale) / 2,
-            (GetScreenHeight() - grass.height * scale) / 2
-        };
+        // Draw tile layers
+        for (auto& layer : mapData["layers"]) {
+            if (layer["type"] != "tilelayer") continue;
 
-        
-        DrawTextureEx(grass, screenCenter, 0.0f, scale, WHITE);
+            const auto& data = layer["data"];
+            int layerWidth = layer["width"];
 
+            for (int i = 0; i < data.size(); i++) {
+                int tileId = data[i];
+                if (tileId == 0) continue;
 
+                Tileset* currentTileset = nullptr;
+                for (auto& ts : tilesets) {
+                    if (tileId >= ts.firstgid) currentTileset = &ts;
+                }
 
-        int padding = 10;
-        int tilesPerScreenRow = WINDOW_WIDTH / (TILE_SIZE + padding);
-        int tileIndex = 0;
+                if (!currentTileset) continue;
 
-        for (int i = 0; i < totalTiles; i++) {
-            int tileX = i % tilesPerRow;
-            int tileY = i / tilesPerRow;
+                int localId = tileId - currentTileset->firstgid;
+                int sx = (localId % currentTileset->columns) * currentTileset->tileWidth;
+                int sy = (localId / currentTileset->columns) * currentTileset->tileHeight;
 
-            Rectangle src = {
-                (float)(tileX * TILE_SIZE),
-                (float)(tileY * TILE_SIZE),
-                (float)TILE_SIZE,
-                (float)TILE_SIZE
-            };
+                int dx = (i % layerWidth) * tileWidth;
+                int dy = (i / layerWidth) * tileHeight;
 
-            int screenX = (tileIndex % tilesPerScreenRow) * (TILE_SIZE + padding);
-            int screenY = (tileIndex / tilesPerScreenRow) * (TILE_SIZE + 30); // Extra for label
+                Rectangle src = { (float)sx, (float)sy, (float)tileWidth, (float)tileHeight };
+                DrawTextureRec(currentTileset->texture, src, { (float)dx, (float)dy }, WHITE);
+            }
+        }
 
-            DrawTextureRec(tileset, src, (Vector2){(float)screenX, (float)screenY}, WHITE);
-            
-            std::string label = "Tile " + std::to_string(i);
-            DrawText(label.c_str(), screenX, screenY + TILE_SIZE + 2, 10, DARKGRAY);
+        // Draw object decorations
+        for (auto& layer : mapData["layers"]) {
+            if (layer["type"] != "objectgroup") continue;
 
-            tileIndex++;
+            for (auto& obj : layer["objects"]) {
+                if (!obj.contains("gid")) continue;
+
+                int gid = obj["gid"];
+                float x = obj["x"];
+                float y = obj["y"];
+
+                if (gidTextures.count(gid)) {
+                    Texture2D tex = gidTextures[gid];
+                    int w = tex.width;
+                    int h = tex.height;
+                    DrawTexture(tex, (int)x, (int)(y - h), WHITE);
+                } else {
+                    // fallback if part of a sprite-based tileset
+                    Tileset* currentTileset = nullptr;
+                    for (auto& ts : tilesets) {
+                        if (gid >= ts.firstgid) currentTileset = &ts;
+                    }
+                    if (!currentTileset) continue;
+
+                    int localId = gid - currentTileset->firstgid;
+                    int sx = (localId % currentTileset->columns) * currentTileset->tileWidth;
+                    int sy = (localId / currentTileset->columns) * currentTileset->tileHeight;
+                    Rectangle src = { (float)sx, (float)sy, (float)tileWidth, (float)tileHeight };
+                    DrawTextureRec(currentTileset->texture, src, { x, y - tileHeight }, WHITE);
+                }
+            }
         }
 
         EndDrawing();
     }
 
-    UnloadTexture(tileset);
+    // Cleanup
+    for (auto& ts : tilesets) UnloadTexture(ts.texture);
+    for (auto& [_, tex] : gidTextures) UnloadTexture(tex);
+
     CloseWindow();
     return 0;
 }
