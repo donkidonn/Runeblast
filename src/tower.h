@@ -34,14 +34,22 @@ struct TowerNode {
 
     ArrowNode* arrowHead;
     TowerNode* next;
+    float attackCooldown;
+    int archerFrameCount;
+
+
+    Texture2D currentArcherTexture;
 };
 
 extern TowerNode* towerHead;
+extern int towersBuilt;
 
 // Core control
 void SpawnTower(Vector2 position);
 void UpdateTowers(TowerNode*& head, float delta);
 void DrawTowers(TowerNode* head);
 bool IsTowerOccupied(Vector2 position);
+void RemoveTower(Vector2 position);
+
 
 #endif
