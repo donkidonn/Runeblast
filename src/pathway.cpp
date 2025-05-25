@@ -9,8 +9,12 @@ SpawnNode* spawnFront = nullptr;
 SpawnNode* spawnRear = nullptr;
 const int totalFrames = 3;
 
-void Enqueue(Vector2 tileCoord) {
-    SpawnNode* newNode = new SpawnNode{tileCoord, nullptr};
+extern int baseHealth;
+extern int maxBaseHealth;
+extern int enemiesKilled;
+
+void Enqueue(Vector2 tileCoord, EnemyType type) {
+    SpawnNode* newNode = new SpawnNode{tileCoord, type, nullptr};
     if (!spawnRear) {
         spawnFront = spawnRear = newNode;
     } else {
@@ -19,9 +23,11 @@ void Enqueue(Vector2 tileCoord) {
     }
 }
 
-bool Dequeue(Vector2& outTile) {
+
+bool Dequeue(Vector2& outTile, EnemyType& outType) {
     if (!spawnFront) return false;
     outTile = spawnFront->spawnTile;
+    outType = spawnFront->type;
     SpawnNode* temp = spawnFront;
     spawnFront = spawnFront->next;
     if (!spawnFront) spawnRear = nullptr;
@@ -29,16 +35,19 @@ bool Dequeue(Vector2& outTile) {
     return true;
 }
 
+
 void SpawnManager(Node* tileMap, float& spawnTimer, float spawnDelay) {
     spawnTimer += GetFrameTime();
     if (spawnTimer >= spawnDelay) {
         Vector2 spawnTile;
-        if (Dequeue(spawnTile)) {
-            SpawnEnemy(headEnemy, spawnTile, tileMap);
+        EnemyType type;
+        if (Dequeue(spawnTile, type)) {
+            SpawnEnemy(headEnemy, spawnTile, tileMap, type);
         }
         spawnTimer = 0.0f;
     }
 }
+
 
 void AddToVisited(VisitedNode*& head, Vector2 tile) {
     VisitedNode* newNode = new VisitedNode{ tile, nullptr };
@@ -59,24 +68,39 @@ bool IsVisited(VisitedNode* head, Vector2 tile) {
     return false;
 }
 
-void SpawnEnemy(Enemy*& head, Vector2 tileCoord, Node* tileMap) {
+void SpawnEnemy(Enemy*& head, Vector2 tileCoord, Node* tileMap, EnemyType type) {
     Vector2 pixelPos = { tileCoord.x * tileWidth, tileCoord.y * tileHeight };
     std::cout << "Spawning at: " << tileCoord.x << "," << tileCoord.y << std::endl;
 
     Enemy* newEnemy = new Enemy;
+
+    switch (type) {
+        case SPIDER:
+            newEnemy->speed = 40.0f;
+            newEnemy->maxHealth = 40;
+            break;
+        case LEAFBUG:
+            newEnemy->speed = 45.0f;
+            newEnemy->maxHealth = 30;
+            break;
+        case MAGMACRAB:
+            newEnemy->speed = 35.0f;
+            newEnemy->maxHealth = 50;
+            break;
+    }
+
+    newEnemy->type = type;
+    newEnemy->health = newEnemy->maxHealth; //para not mag long af line sa health
     newEnemy->position = pixelPos;
     newEnemy->currentTile = tileCoord;
     newEnemy->previousTile = tileCoord;
     newEnemy->facingDir = {1, 0};
     newEnemy->rotation = 0.0f;
     newEnemy->visitedHead = nullptr;
-    newEnemy->health = 50;
-    newEnemy->maxHealth = 50;
     newEnemy->isHit = false;
     newEnemy->hitTimer = 0.0f;
     AddToVisited(newEnemy->visitedHead, tileCoord);
     newEnemy->targetTilePos = pixelPos;
-    newEnemy->speed = 60.0f;
     newEnemy->frameTimer = 0.0f;
     newEnemy->currentFrame = 0;
     newEnemy->next = nullptr;
@@ -88,6 +112,7 @@ void SpawnEnemy(Enemy*& head, Vector2 tileCoord, Node* tileMap) {
         current->next = newEnemy;
     }
 }
+
 
 Vector2 GetNextTile(Vector2 currentTile, Node* tileMap, VisitedNode* visitedHead) {
     Vector2 directions[4] = {
@@ -142,6 +167,8 @@ void UpdateEnemies(Enemy*& head, Node* tileMap, float delta) {
                 };
             } else {
                 std::cout << "Enemy reached the end or is stuck.\n";
+                baseHealth--;
+                std::cout << "Base health: " << baseHealth << std::endl;
                 Enemy* toDelete = current;
                 current = current->next;
                 RemoveEnemy(head, toDelete);
@@ -168,6 +195,7 @@ void UpdateEnemies(Enemy*& head, Node* tileMap, float delta) {
         // Check health
         if (current->health <= 0) {
             std::cout << "Enemy died.\n";
+            enemiesKilled++;
             Enemy* toDelete = current;
             current = current->next;
             RemoveEnemy(head, toDelete);
